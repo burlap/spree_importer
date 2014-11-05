@@ -117,7 +117,7 @@ module SpreeImporter
         images = image.split(SpreeImporter.config.delimiter).map{|f| Field.new(f) }
 
         images.each do |photo|
-          Spree::Imgae.create(:viewable_type => "Spree::Variant", :viewable_id => product.master.id, :attachment => File.open("/Users/burlap/Documents/dental/photos/#{photo}"), :alt => product.name)
+          Spree::Image.create(:viewable_type => "Spree::Variant", :viewable_id => product.master.id, :attachment => File.open("/Users/burlap/Documents/dental/photos/#{photo}"), :alt => product.name)
         end
 
       end
