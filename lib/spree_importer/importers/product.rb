@@ -19,8 +19,12 @@ module SpreeImporter
           product.sku_pattern  ||= SpreeImporter.config.default_sku
 
           product.batch_id        = batch_id
+          tax  = val headers, row, :tax
+          meta_keywords_en = val headers, row, :enmetakeywords
+          meta_description_en = val headers, row, :enmetadescription
+          name_en = val headers, row, :enname
+          description_en = val headers, row, :endescription
 
-          setup_taxonomies(product, row['category'])
 
           # for safety we're skipping and warning on products that look like dups
           if ::Spree::Variant.exists? sku: product.sku
@@ -36,14 +40,24 @@ module SpreeImporter
           else
             shipping = ::Spree::ShippingCategory.find_by_name shipping
           end
-
           product.shipping_category_id = shipping.id
-          properties                   = [ ]
+          product.tax_categry_id = tax
 
+          #previously it was before shipping category.
+          setup_taxonomies(product, row['category'])
+
+          properties                   = [ ]
           properties, option_types     = props_and_ops_from_headers headers, row
 
           setup_variants product,   option_types, headers, row
           setup_properties product, properties, headers, row
+
+          image = val headers, row, :photo
+          setup_images product, image
+
+          product.set_translations(
+            :en => {:name => name_en, :description => description_en, :meta_keywords => meta_description_en, :meta_description => meta_description_en}
+            )
 
           product.save!
         end
@@ -91,10 +105,23 @@ module SpreeImporter
           product.variants.each &:generate_sku!
         end
 
-        product.variants.each{|v| v.update_attribute :batch_id, batch_id }        
+        product.variants.each  do |v|
+          v.update_attribute :batch_id, batch_id
+          v.update_attribute :tax_category_id, tax
+        end
+        product.master.update_attribute :tax_category_id, tax
         product.master.update_attribute :batch_id, batch_id
       end
+
+      def setup_images(product, image)
+        images = image.split(SpreeImporter.config.delimiter).map{|f| Field.new(f) }
+
+        images.each do |photo|
+          Spree::Imgae.create(:viewable_type => "Spree::Variant", :viewable_id => product.master.id, :attachment => File.open("/Users/burlap/Documents/dental/photos/#{photo}"), :alt => product.name)
+        end
+
+      end
     end
-    
+
   end
 end
