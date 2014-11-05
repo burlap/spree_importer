@@ -19,7 +19,7 @@ module SpreeImporter
           product.sku_pattern  ||= SpreeImporter.config.default_sku
 
           product.batch_id        = batch_id
-          tax  = val headers, row, :tax
+          tax = val headers, row, :tax
           meta_keywords_en = val headers, row, :enmetakeywords
           meta_description_en = val headers, row, :enmetadescription
           name_en = val headers, row, :enname
@@ -41,7 +41,7 @@ module SpreeImporter
             shipping = ::Spree::ShippingCategory.find_by_name shipping
           end
           product.shipping_category_id = shipping.id
-          product.tax_categry_id = tax
+          product.tax_category_id = tax
 
           #previously it was before shipping category.
           setup_taxonomies(product, row['category'])
