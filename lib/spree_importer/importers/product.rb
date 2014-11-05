@@ -107,9 +107,9 @@ module SpreeImporter
 
         product.variants.each  do |v|
           v.update_attribute :batch_id, batch_id
-          v.update_attribute :tax_category_id, tax
+          v.update_attribute :tax_category_id, product.tax_category_id
         end
-        product.master.update_attribute :tax_category_id, tax
+        product.master.update_attribute :tax_category_id, product.tax_category_id
         product.master.update_attribute :batch_id, batch_id
       end
 
