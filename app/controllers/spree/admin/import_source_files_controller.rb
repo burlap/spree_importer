@@ -39,7 +39,7 @@ class Spree::Admin::ImportSourceFilesController < Spree::Admin::ResourceControll
     @source_file.save
     @source_file.import!
     @source_file.save
-    
+
     if @source_file.errors.blank?
       render_source_file
     else
@@ -74,7 +74,7 @@ class Spree::Admin::ImportSourceFilesController < Spree::Admin::ResourceControll
   def create_google
     raise GoogleDrive::AuthenticationError.new if spree_current_user.google_token.nil?
     session   = GoogleDrive.login_with_oauth spree_current_user.google_token
-    
+
     next_id = Spree::ImportSourceFile.last.try(:id) || 0
     next_id += 1
     ss = session.create_spreadsheet("#{Spree::Config[:site_name]} Batch Import ##{next_id}")
@@ -93,8 +93,8 @@ class Spree::Admin::ImportSourceFilesController < Spree::Admin::ResourceControll
 
     ws = resource.flat_worksheet spree_current_user.google_token
     y = 0
-    SpreeImporter::Exporter.new(search: {batch_id_eq:resource.id}, target: :variant).export do |r| 
-      CSV.parse(r).first.each_with_index do |c,x| 
+    SpreeImporter::Exporter.new(search: {batch_id_eq:resource.id}, target: :variant).export do |r|
+      CSV.parse(r).first.each_with_index do |c,x|
         ws[(y+1),(x+1)] = c
       end
       y += 1
@@ -103,7 +103,7 @@ class Spree::Admin::ImportSourceFilesController < Spree::Admin::ResourceControll
         ws.save
       end
     end
-    ws.save 
+    ws.save
     redirect_to :back
   end
 
@@ -115,7 +115,7 @@ class Spree::Admin::ImportSourceFilesController < Spree::Admin::ResourceControll
 
 
   def collection
-    super.includes(products:[{variants: :stock_items}, :assets, :taxons]) #.includes({products: [:taxons, {master: :default_price}]}, :variants)
+    super.includes(products:[{variants: :stock_items}, :taxons]) #.includes({products: [:taxons, {master: :default_price}]}, :variants)
   end
 
   protected
