@@ -13,17 +13,20 @@ module SpreeImporter
       target ::Spree::Product
 
       def import(headers, csv)
+        previous ||= {}
         each_instance headers, csv do |product, row|
           master_sku             = val headers, row, :master_sku
           product.sku            = master_sku unless master_sku.nil?
           product.sku_pattern  ||= SpreeImporter.config.default_sku
 
           product.batch_id        = batch_id
+
           tax = val headers, row, :tax
           meta_keywords_en = val headers, row, :enmetakeywords
           meta_description_en = val headers, row, :enmetadescription
           name_en = val headers, row, :enname
           description_en = val headers, row, :endescription
+          relation = val headers, row, :relations
 
 
           # for safety we're skipping and warning on products that look like dups
@@ -49,6 +52,8 @@ module SpreeImporter
           properties                   = [ ]
           properties, option_types     = props_and_ops_from_headers headers, row
 
+          product.option_type = option_types
+
           setup_variants product,   option_types, headers, row
           setup_properties product, properties, headers, row
 
@@ -56,10 +61,12 @@ module SpreeImporter
           setup_images product, image
 
           product.set_translations(
-            :en => {:name => name_en, :description => description_en, :meta_keywords => meta_description_en, :meta_description => meta_description_en}
+            :en => {:name => name_en, :description => description_en, :meta_keywords => meta_keywords_en, :meta_description => meta_description_en}
             )
 
           product.save!
+          if (previous.master_sku == relation) setup_relations product, previous
+          previous = product
         end
       end
 
@@ -97,7 +104,7 @@ module SpreeImporter
         if option_values_hash.any?
           product.option_values_hash  = option_values_hash
         end
-
+        p "Option values hash #{product.option_values_hash}"
         product.save!
         if val headers, row, :sku
           product.variants.destroy_all
@@ -121,6 +128,41 @@ module SpreeImporter
         end
 
       end
+
+      def setup_relations(product, previous)
+
+        previous.relations.each do |related|
+          # product -> relation
+          relation_params = {relation_type_id: 1, relatable_id: product.id, relatable_type: "Spree::Product", related_to_id: related.related_to.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+          relation = product.relations.new(relation_params)
+          relation.relatable = product
+          relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
+          relation.save
+
+          # relation -> product
+          relation_params = {relation_type_id: 1, relatable_id: related.related_to.id, relatable_type: "Spree::Product", related_to_id: product.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+          relation = product.relations.new(relation_params)
+          relation.relatable = related.related_to
+          relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
+          relation.save
+        end
+
+        ## product -> previous
+        relation_params = {relation_type_id: 1, relatable_id: product.id, relatable_type: "Spree::Product", related_to_id: previous.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+        relation = product.relations.new(relation_params)
+        relation.relatable = product
+        relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
+        relation.save
+        ## previous -> product
+        relation_params = {relation_type_id: 1, relatable_id: previous.id, relatable_type: "Spree::Product", related_to_id: product.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+        relation = product.relations.new(relation_params)
+        relation.relatable = previous
+        relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
+        relation.save
+
+      end
+
+
     end
 
   end
