@@ -66,7 +66,7 @@ module SpreeImporter
           end
 
           product.set_translations(
-            :en => {:name => name_en, :description => description_en, :meta_keywords => meta_keywords_en}
+            :en => {:name => name_en, :description => description_en, :meta_keywords => meta_keywords_en},
             :ru => {:name => name_ru, :description => description_ru}
             )
 
