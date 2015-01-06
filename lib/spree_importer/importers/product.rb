@@ -23,10 +23,13 @@ module SpreeImporter
 
           tax = val headers, row, :tax
           meta_keywords_en = val headers, row, :enmetakeywords
-          meta_description_en = val headers, row, :enmetadescription
+          #meta_description_en = val headers, row, :enmetadescription
           name_en = val headers, row, :enname
+          name_ru = val headers, row, :runame
           description_en = val headers, row, :endescription
+          description_ru = val headers, row, :rudescription
           relation = val headers, row, :relations
+          rel_type = val headers, row, :relationtype
 
 
           # for safety we're skipping and warning on products that look like dups
@@ -52,20 +55,28 @@ module SpreeImporter
           properties                   = [ ]
           properties, option_types     = props_and_ops_from_headers headers, row
 
-          product.option_type = option_types
+          product.option_types = option_types
 
           setup_variants product,   option_types, headers, row
           setup_properties product, properties, headers, row
 
           image = val headers, row, :photo
-          setup_images product, image
+          unless image.blank?
+            setup_images product, image
+          end
 
           product.set_translations(
-            :en => {:name => name_en, :description => description_en, :meta_keywords => meta_keywords_en, :meta_description => meta_description_en}
+            :en => {:name => name_en, :description => description_en, :meta_keywords => meta_keywords_en}
+            :ru => {:name => name_ru, :description => description_ru}
             )
 
           product.save!
-          if (previous.master_sku == relation) setup_relations product, previous
+          if (previous.present? && previous.sku == relation)
+            setup_relations product, previous, rel_type
+          elsif (relation.present?)
+            previous = Spree::Product.find_by_sku(relation)
+            relation_set product, previous, rel_type
+          end
           previous = product
         end
       end
@@ -129,39 +140,55 @@ module SpreeImporter
 
       end
 
-      def setup_relations(product, previous)
+      def setup_relations(product, previous, rel_type)
 
         previous.relations.each do |related|
-          # product -> relation
-          relation_params = {relation_type_id: 1, relatable_id: product.id, relatable_type: "Spree::Product", related_to_id: related.related_to.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
-          relation = product.relations.new(relation_params)
-          relation.relatable = product
-          relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
-          relation.save
+          # # product -> relation
+          # relation_params = {relation_type_id: 1, relatable_id: product.id, relatable_type: "Spree::Product", related_to_id: related.related_to.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+          # relation = product.relations.new(relation_params)
+          # relation.relatable = product
+          # relation.related_to = related.related_to
+          # relation.save!
 
-          # relation -> product
-          relation_params = {relation_type_id: 1, relatable_id: related.related_to.id, relatable_type: "Spree::Product", related_to_id: product.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
-          relation = product.relations.new(relation_params)
-          relation.relatable = related.related_to
-          relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
-          relation.save
+          # # relation -> product
+          # relation_params = {relation_type_id: 1, relatable_id: related.related_to.id, relatable_type: "Spree::Product", related_to_id: product.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+          # relation = product.relations.new(relation_params)
+          # relation.relatable = related.related_to
+          # relation.related_to = product
+          # relation.save!
+          relation_set product, related, rel_type
         end
 
         ## product -> previous
-        relation_params = {relation_type_id: 1, relatable_id: product.id, relatable_type: "Spree::Product", related_to_id: previous.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
-        relation = product.relations.new(relation_params)
-        relation.relatable = product
-        relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
-        relation.save
-        ## previous -> product
-        relation_params = {relation_type_id: 1, relatable_id: previous.id, relatable_type: "Spree::Product", related_to_id: product.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
-        relation = product.relations.new(relation_params)
-        relation.relatable = previous
-        relation.related_to = Spree::Variant.find(relation_params[:related_to_id]).product
-        relation.save
+        # relation_params = {relation_type_id: 1, relatable_id: product.id, relatable_type: "Spree::Product", related_to_id: previous.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+        # relation = product.relations.new(relation_params)
+        # relation.relatable = product
+        # relation.related_to = previous
+        # relation.save!
+        # ## previous -> product
+        # relation_params = {relation_type_id: 1, relatable_id: previous.id, relatable_type: "Spree::Product", related_to_id: product.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+        # relation = product.relations.new(relation_params)
+        # relation.relatable = previous
+        # relation.related_to = product
+        # relation.save!
+        relation_set product, previous, rel_type
 
       end
 
+      def relation_set(product_a, product_b, rel_type)
+        ## product A -> product B
+        relation_params = {relation_type_id: rel_type, relatable_id: product_a.id, relatable_type: "Spree::Product", related_to_id: product_b.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+        relation = product_a.relations.new(relation_params)
+        relation.relatable = product_a
+        relation.related_to = product_b
+        relation.save!
+        ## product B -> product A
+        relation_params = {relation_type_id: rel_type, relatable_id: product_b.id, relatable_type: "Spree::Product", related_to_id: product_a.id, related_to_type: "Spree::Product", discount_amount: 0, position: nil}
+        relation = product_b.relations.new(relation_params)
+        relation.relatable = product_b
+        relation.related_to = product_a
+        relation.save!
+      end
 
     end
 
